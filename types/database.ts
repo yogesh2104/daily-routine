@@ -20,6 +20,7 @@ export interface ExerciseSet {
     reps_done?: number
     weight_used?: number
     duration_sec?: number
+    rpe?: number // Added rpe field
     completed: boolean
     created_at: string
 }
@@ -31,6 +32,18 @@ export interface DailyHabit {
     habit_key: HabitKey
     completed: boolean
     value?: string
+    created_at: string
+    updated_at: string
+}
+
+export interface BodyStat {
+    id: string
+    user_id: string
+    date: string
+    weight?: number
+    body_fat?: number
+    waist?: number
+    notes?: string
     created_at: string
     updated_at: string
 }
@@ -53,6 +66,7 @@ export type HabitKey =
     | 'steps'
     | 'sleep_bed'
     | 'sleep_wake'
+    | 'protein'
 
 // Database insert types (without auto-generated fields)
 export type WorkoutSessionInsert = Omit<WorkoutSession, 'id' | 'created_at' | 'updated_at'>

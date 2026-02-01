@@ -11,6 +11,7 @@ interface SyncableHabit {
     date: string
     habit_key: string
     completed: boolean
+    value?: string
 }
 
 interface SyncableSession {
@@ -29,7 +30,18 @@ interface SyncableSet {
     reps_target?: string
     reps_done?: number
     weight_used?: number
+    rpe?: number
     completed: boolean
+}
+
+interface SyncableBodyStat {
+    id: string
+    user_id: string
+    date: string
+    weight?: number
+    body_fat?: number
+    waist?: number
+    notes?: string
 }
 
 // Check if online
@@ -50,7 +62,8 @@ async function syncHabits(): Promise<void> {
                 user_id: h.user_id,
                 date: h.date,
                 habit_key: h.habit_key,
-                completed: h.completed
+                completed: h.completed,
+                value: h.value
             })),
             { onConflict: 'user_id,date,habit_key' }
         )
@@ -99,6 +112,7 @@ async function syncExerciseSets(): Promise<void> {
                 reps_target: s.reps_target,
                 reps_done: s.reps_done,
                 weight_used: s.weight_used,
+                rpe: s.rpe,
                 completed: s.completed
             })),
             { onConflict: 'session_id,exercise_name,set_number' }
@@ -106,6 +120,31 @@ async function syncExerciseSets(): Promise<void> {
 
     if (!error) {
         await markAsSynced('exercise_sets', unsyncedSets.map(s => s.id))
+    }
+}
+
+// Sync body stats to Supabase
+async function syncBodyStats(): Promise<void> {
+    const unsyncedStats = await getUnsyncedItems<SyncableBodyStat>('body_stats')
+
+    if (unsyncedStats.length === 0) return
+
+    const { error } = await supabase
+        .from('body_stats')
+        .upsert(
+            unsyncedStats.map(s => ({
+                user_id: s.user_id,
+                date: s.date,
+                weight: s.weight,
+                body_fat: s.body_fat,
+                waist: s.waist,
+                notes: s.notes
+            })),
+            { onConflict: 'user_id,date' }
+        )
+
+    if (!error) {
+        await markAsSynced('body_stats', unsyncedStats.map(s => s.id))
     }
 }
 
@@ -121,6 +160,7 @@ export async function syncAll(): Promise<void> {
         await syncHabits()
         await syncWorkoutSessions()
         await syncExerciseSets()
+        await syncBodyStats()
         console.log('Sync complete')
     } catch (error) {
         console.error('Sync failed:', error)

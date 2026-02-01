@@ -31,7 +31,7 @@ export const weeklyRoutine: WeeklyRoutine = {
                 evening_gym: 'Chest + Triceps + Core'
             },
             nutrition: {
-                lunch_dal: 'Moong Dal Tadka'
+                lunch_dal: 'Moong Dal Tadka + 100g Paneer/Tofu'
             },
             skincare_pm: 'Rest (moisturizer only)',
             gym_day: 'day_1_push'
@@ -42,7 +42,7 @@ export const weeklyRoutine: WeeklyRoutine = {
                 evening_gym: 'Back + Biceps'
             },
             nutrition: {
-                lunch_dal: 'Masoor Dal with Vegetables'
+                lunch_dal: 'Masoor Dal + Soya Chunks'
             },
             skincare_pm: 'Niacinamide 5%',
             gym_day: 'day_2_pull'
@@ -86,7 +86,7 @@ export const weeklyRoutine: WeeklyRoutine = {
                 evening_gym: 'Optional mobility or skipped'
             },
             nutrition: {
-                lunch_dal: 'Moong Dal + Vegetables'
+                lunch_dal: 'Moong Dal + Boiled Sprouted Salad'
             },
             skincare_pm: 'Gentle Exfoliation (biweekly)',
             gym_day: 'day_6_light_cardio'

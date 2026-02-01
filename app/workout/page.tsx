@@ -16,6 +16,7 @@ interface SetData {
     reps_done?: number
     weight_used?: number
     duration_sec?: number
+    rpe?: number
     completed: boolean
 }
 
@@ -72,6 +73,7 @@ export default function WorkoutPage() {
                         reps_done: s.reps_done ?? undefined,
                         weight_used: s.weight_used ?? undefined,
                         duration_sec: s.duration_sec ?? undefined,
+                        rpe: s.rpe ?? undefined,
                         completed: s.completed
                     })))
                     setLoading(false)
@@ -161,6 +163,15 @@ export default function WorkoutPage() {
         ))
     }
 
+    // Update rpe
+    const updateRpe = (exerciseName: string, setNumber: number, rpe: number | undefined) => {
+        setSets(prev => prev.map(s =>
+            s.exercise_name === exerciseName && s.set_number === setNumber
+                ? { ...s, rpe: rpe }
+                : s
+        ))
+    }
+
     // Save workout
     const saveWorkout = async () => {
         if (!user) return
@@ -207,6 +218,7 @@ export default function WorkoutPage() {
                 reps_done: s.reps_done,
                 weight_used: s.weight_used,
                 duration_sec: s.duration_sec,
+                rpe: s.rpe,
                 completed: s.completed
             }))
 
@@ -295,6 +307,7 @@ export default function WorkoutPage() {
                             <span className="text-center">Target</span>
                             <span className="text-center">Reps</span>
                             <span className="text-center">kg</span>
+                            <span className="text-center">RPE</span>
                         </div>
 
                         {/* Sets */}
@@ -302,7 +315,7 @@ export default function WorkoutPage() {
                             {exerciseSets.map((set) => (
                                 <div
                                     key={`${set.exercise_name}-${set.set_number}`}
-                                    className={`grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center p-2 rounded-lg transition-colors ${set.completed ? 'bg-success/10' : 'bg-surface-elevated'
+                                    className={`grid grid-cols-[auto_1fr_1fr_1fr_1fr] gap-2 items-center p-2 rounded-lg transition-colors ${set.completed ? 'bg-success/10' : 'bg-surface-elevated'
                                         }`}
                                 >
                                     {/* Checkbox */}
@@ -341,6 +354,16 @@ export default function WorkoutPage() {
                                             onChange={(v) => updateWeight(set.exercise_name, set.set_number, v)}
                                             placeholder="-"
                                             step={0.5}
+                                        />
+                                    </div>
+
+                                    {/* RPE */}
+                                    <div className="flex justify-center">
+                                        <NumberInput
+                                            value={set.rpe}
+                                            onChange={(v) => updateRpe(set.exercise_name, set.set_number, v)}
+                                            placeholder="-"
+                                            step={1}
                                         />
                                     </div>
                                 </div>

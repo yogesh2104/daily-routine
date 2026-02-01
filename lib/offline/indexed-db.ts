@@ -1,6 +1,6 @@
 // IndexedDB wrapper for offline storage
 const DB_NAME = 'fitness-tracker'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 interface OfflineData {
     habits: Array<{
@@ -9,6 +9,7 @@ interface OfflineData {
         date: string
         habit_key: string
         completed: boolean
+        value?: string
         synced: boolean
     }>
     workout_sessions: Array<{
@@ -27,7 +28,18 @@ interface OfflineData {
         reps_target?: string
         reps_done?: number
         weight_used?: number
+        rpe?: number
         completed: boolean
+        synced: boolean
+    }>
+    body_stats: Array<{
+        id: string
+        user_id: string
+        date: string
+        weight?: number
+        body_fat?: number
+        waist?: number
+        notes?: string
         synced: boolean
     }>
 }
@@ -69,13 +81,20 @@ export async function initDB(): Promise<IDBDatabase> {
                 setsStore.createIndex('by_session', 'session_id')
                 setsStore.createIndex('by_synced', 'synced')
             }
+
+            // Body stats store
+            if (!database.objectStoreNames.contains('body_stats')) {
+                const statsStore = database.createObjectStore('body_stats', { keyPath: 'id' })
+                statsStore.createIndex('by_date', 'date')
+                statsStore.createIndex('by_synced', 'synced')
+            }
         }
     })
 }
 
 // Generic put operation
 export async function putItem<T extends { id: string }>(
-    storeName: 'habits' | 'workout_sessions' | 'exercise_sets',
+    storeName: 'habits' | 'workout_sessions' | 'exercise_sets' | 'body_stats',
     item: T
 ): Promise<void> {
     const database = await initDB()
@@ -92,7 +111,7 @@ export async function putItem<T extends { id: string }>(
 
 // Get all items from a store
 export async function getAllItems<T>(
-    storeName: 'habits' | 'workout_sessions' | 'exercise_sets'
+    storeName: 'habits' | 'workout_sessions' | 'exercise_sets' | 'body_stats'
 ): Promise<T[]> {
     const database = await initDB()
 
@@ -108,7 +127,7 @@ export async function getAllItems<T>(
 
 // Get items by date
 export async function getItemsByDate<T>(
-    storeName: 'habits' | 'workout_sessions',
+    storeName: 'habits' | 'workout_sessions' | 'body_stats',
     date: string
 ): Promise<T[]> {
     const database = await initDB()
@@ -126,7 +145,7 @@ export async function getItemsByDate<T>(
 
 // Get unsynced items
 export async function getUnsyncedItems<T>(
-    storeName: 'habits' | 'workout_sessions' | 'exercise_sets'
+    storeName: 'habits' | 'workout_sessions' | 'exercise_sets' | 'body_stats'
 ): Promise<T[]> {
     const database = await initDB()
 
@@ -143,7 +162,7 @@ export async function getUnsyncedItems<T>(
 
 // Mark items as synced
 export async function markAsSynced(
-    storeName: 'habits' | 'workout_sessions' | 'exercise_sets',
+    storeName: 'habits' | 'workout_sessions' | 'exercise_sets' | 'body_stats',
     ids: string[]
 ): Promise<void> {
     const database = await initDB()
@@ -174,13 +193,14 @@ export async function clearAllData(): Promise<void> {
 
     return new Promise((resolve, reject) => {
         const transaction = database.transaction(
-            ['habits', 'workout_sessions', 'exercise_sets'],
+            ['habits', 'workout_sessions', 'exercise_sets', 'body_stats'],
             'readwrite'
         )
 
         transaction.objectStore('habits').clear()
         transaction.objectStore('workout_sessions').clear()
         transaction.objectStore('exercise_sets').clear()
+        transaction.objectStore('body_stats').clear()
 
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(transaction.error)

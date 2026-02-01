@@ -3,21 +3,26 @@ export interface HabitDefinition {
     key: string
     label: string
     icon: string
-    category: 'morning' | 'daily' | 'evening'
+    category: 'morning' | 'nutrition' | 'fitness' | 'skincare' | 'recovery'
 }
 
 export const habitDefinitions: HabitDefinition[] = [
     // Morning habits
     { key: 'morning_routine', label: 'Morning Routine', icon: '🌅', category: 'morning' },
-    { key: 'skincare_am', label: 'AM Skincare', icon: '✨', category: 'morning' },
 
-    // Daily habits
-    { key: 'water', label: 'Water (3L)', icon: '💧', category: 'daily' },
-    { key: 'steps', label: 'Steps / Walking', icon: '👟', category: 'daily' },
+    // Nutrition habits
+    { key: 'protein', label: 'Protein Target (150g+)', icon: '🍗', category: 'nutrition' },
+    { key: 'water', label: 'Hydration (3L)', icon: '💧', category: 'nutrition' },
 
-    // Evening habits
-    { key: 'skincare_pm', label: 'PM Skincare', icon: '🌙', category: 'evening' },
-    { key: 'sleep_bed', label: 'Bed by 10:30', icon: '😴', category: 'evening' },
+    // Fitness habits
+    { key: 'steps', label: 'Steps (8k-10k)', icon: '🚶', category: 'fitness' },
+
+    // Skincare habits
+    { key: 'skincare_am', label: 'Skincare (AM)', icon: '☀️', category: 'skincare' },
+    { key: 'skincare_pm', label: 'Skincare (PM)', icon: '🌙', category: 'skincare' },
+
+    // Recovery habits
+    { key: 'sleep', label: 'Quality Sleep (6.5h+)', icon: '😴', category: 'recovery' },
 ]
 
 export function getHabitsByCategory(category: HabitDefinition['category']) {
