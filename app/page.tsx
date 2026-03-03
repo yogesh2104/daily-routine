@@ -7,12 +7,13 @@ import { useAuth } from '@/contexts/auth-context'
 import { PageContainer } from '@/components/layout'
 import { Card, CardHeader, Button, Checkbox, Input } from '@/components/ui'
 import { getTodaysRoutine, getDayName } from '@/config/daily-routine'
-import { getTodaysGymDay, gymProgram } from '@/config/workout-program'
+import { getTodaysGymDay, gymProgram, dayOfWeekToGymDay } from '@/config/workout-program'
+import { getTodaysDiet } from '@/config/diet-plan'
 import { habitDefinitions } from '@/config/habits'
 import { supabase } from '@/lib/supabase/client'
-import { syncAll, isOnline as checkOnline } from '@/lib/offline/sync'
-import { putItem, getItemsByDate } from '@/lib/offline/indexed-db'
-import type { DailyHabit, HabitKey } from '@/types/database'
+import { getStreakData, CHALLENGE_DAYS, type StreakData } from '@/lib/streak'
+import { getRecentPRs, type PersonalRecord } from '@/lib/personal-records'
+import type { HabitKey } from '@/types/database'
 
 const PRO_TIPS = [
   "Prioritize protein (1.6-2g/kg) to maintain muscle while losing fat.",
@@ -37,8 +38,9 @@ export default function TodayDashboard() {
   const [habits, setHabits] = useState<Record<string, boolean>>({})
   const [habitValues, setHabitValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
-  const [isOnline, setIsOnline] = useState(true)
   const [currentTip] = useState(() => PRO_TIPS[Math.floor(Math.random() * PRO_TIPS.length)])
+  const [streakData, setStreakData] = useState<StreakData | null>(null)
+  const [recentPRs, setRecentPRs] = useState<PersonalRecord[]>([])
 
   const today = new Date()
   const todayStr = today.toISOString().split('T')[0]
@@ -58,49 +60,36 @@ export default function TodayDashboard() {
     const userId = user.id
 
     async function loadHabits() {
-      // First try offline data
-      const localHabits = await getItemsByDate<DailyHabit & { synced?: boolean }>('habits', todayStr)
+      const { data: serverHabits } = await supabase
+        .from('daily_habits')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', todayStr)
 
-      if (localHabits.length > 0) {
+      if (serverHabits) {
         const habitMap: Record<string, boolean> = {}
         const valueMap: Record<string, string> = {}
-        localHabits.forEach(h => {
+        serverHabits.forEach(h => {
           habitMap[h.habit_key] = h.completed
           if (h.value) valueMap[h.habit_key] = h.value
         })
         setHabits(habitMap)
         setHabitValues(valueMap)
-        setLoading(false)
-      }
-
-      // Sync with Supabase
-      if (checkOnline()) {
-        setIsOnline(true)
-        await syncAll()
-
-        const { data: serverHabits } = await supabase
-          .from('daily_habits')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', todayStr)
-
-        if (serverHabits) {
-          const habitMap: Record<string, boolean> = {}
-          const valueMap: Record<string, string> = {}
-          serverHabits.forEach(h => {
-            habitMap[h.habit_key] = h.completed
-            if (h.value) valueMap[h.habit_key] = h.value
-          })
-          setHabits(habitMap)
-          setHabitValues(valueMap)
-        }
-      } else {
-        setIsOnline(false)
       }
       setLoading(false)
     }
 
+    async function loadStreakAndPRs() {
+      const [streak, prs] = await Promise.all([
+        getStreakData(userId),
+        getRecentPRs(userId),
+      ])
+      setStreakData(streak)
+      setRecentPRs(prs)
+    }
+
     loadHabits()
+    loadStreakAndPRs()
   }, [user, todayStr])
 
   // Toggle habit
@@ -112,29 +101,16 @@ export default function TodayDashboard() {
     // Update UI immediately
     setHabits(prev => ({ ...prev, [habitKey]: newValue }))
 
-    // Save local
-    const habitId = `${user.id}-${todayStr}-${habitKey}`
-    await putItem('habits', {
-      id: habitId,
-      user_id: user.id,
-      date: todayStr,
-      habit_key: habitKey as HabitKey,
-      completed: newValue,
-      value: currentValue
-    })
-
-    // Sync if online
-    if (checkOnline()) {
-      await supabase
-        .from('daily_habits')
-        .upsert({
-          user_id: user.id,
-          date: todayStr,
-          habit_key: habitKey as HabitKey,
-          completed: newValue,
-          value: currentValue
-        }, { onConflict: 'user_id,date,habit_key' })
-    }
+    // Save to Supabase
+    await supabase
+      .from('daily_habits')
+      .upsert({
+        user_id: user.id,
+        date: todayStr,
+        habit_key: habitKey as HabitKey,
+        completed: newValue,
+        value: currentValue
+      }, { onConflict: 'user_id,date,habit_key' })
   }
 
   const updateHabitValue = async (habitKey: string, value: string) => {
@@ -142,30 +118,17 @@ export default function TodayDashboard() {
 
     setHabitValues(prev => ({ ...prev, [habitKey]: value }))
 
-    // Save local
+    // Save to Supabase
     const isCompleted = habits[habitKey] || false
-    const habitId = `${user.id}-${todayStr}-${habitKey}`
-    await putItem('habits', {
-      id: habitId,
-      user_id: user.id,
-      date: todayStr,
-      habit_key: habitKey as HabitKey,
-      completed: isCompleted,
-      value: value
-    })
-
-    // Debounced or simple sync
-    if (checkOnline()) {
-      await supabase
-        .from('daily_habits')
-        .upsert({
-          user_id: user.id,
-          date: todayStr,
-          habit_key: habitKey as HabitKey,
-          completed: isCompleted,
-          value: value
-        }, { onConflict: 'user_id,date,habit_key' })
-    }
+    await supabase
+      .from('daily_habits')
+      .upsert({
+        user_id: user.id,
+        date: todayStr,
+        habit_key: habitKey as HabitKey,
+        completed: isCompleted,
+        value: value
+      }, { onConflict: 'user_id,date,habit_key' })
   }
 
   if (authLoading || !user || loading) {
@@ -191,13 +154,7 @@ export default function TodayDashboard() {
             <h1 className="text-2xl font-bold text-foreground mt-1">
               {formatDate(today)}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-muted text-sm">Welcome back!</p>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] uppercase font-bold ${isOnline ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
-                }`}>
-                {isOnline ? 'Online' : 'Offline'}
-              </span>
-            </div>
+            <p className="text-muted text-sm mt-1">Welcome back!</p>
           </div>
           <Button
             variant="ghost"
@@ -208,6 +165,79 @@ export default function TodayDashboard() {
           </Button>
         </div>
       </header>
+
+      {/* Streak & Challenge Card */}
+      {streakData && (
+        <Card className="mb-4 bg-gradient-to-r from-warning/10 via-danger/5 to-primary/10 border-warning/20">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{streakData.currentStreak > 0 ? '🔥' : '💪'}</span>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">
+                  {streakData.currentStreak > 0
+                    ? `${streakData.currentStreak} Day Streak!`
+                    : 'Start Your Streak Today!'}
+                </h4>
+                <p className="text-[10px] text-muted">
+                  Best: {streakData.longestStreak} days • {streakData.totalActiveDays} total active days
+                </p>
+              </div>
+            </div>
+            {streakData.currentMilestone && (
+              <span className="text-2xl" title={streakData.currentMilestone.label}>
+                {streakData.currentMilestone.icon}
+              </span>
+            )}
+          </div>
+
+          {/* 180-Day Challenge Progress */}
+          <div className="mb-2">
+            <div className="flex justify-between text-[10px] mb-1">
+              <span className="text-muted uppercase tracking-wider font-semibold">6-Month Challenge</span>
+              <span className="text-foreground font-bold">Day {streakData.challengeDay}/{CHALLENGE_DAYS}</span>
+            </div>
+            <div className="h-2 bg-surface rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-warning via-danger to-primary transition-all duration-500 rounded-full"
+                style={{ width: `${Math.min((streakData.challengeDay / CHALLENGE_DAYS) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Next Milestone */}
+          {streakData.nextMilestone && (
+            <p className="text-[10px] text-muted">
+              Next: {streakData.nextMilestone.icon} {streakData.nextMilestone.label} in{' '}
+              <span className="text-foreground font-medium">
+                {streakData.nextMilestone.days - streakData.currentStreak} days
+              </span>
+            </p>
+          )}
+        </Card>
+      )}
+
+      {/* Recent PRs Card */}
+      {recentPRs.length > 0 && (
+        <Card className="mb-4 bg-success/5 border-success/20">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">🏆</span>
+            <h4 className="text-sm font-bold text-foreground">Recent PRs This Week</h4>
+          </div>
+          <div className="space-y-2">
+            {recentPRs.slice(0, 3).map((pr) => (
+              <div key={pr.exercise_name} className="flex items-center justify-between">
+                <span className="text-sm text-foreground/80 truncate max-w-[60%]">{pr.exercise_name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-success">{pr.weight}kg × {pr.reps}</span>
+                  <span className="text-[10px] text-muted bg-surface px-1.5 py-0.5 rounded">
+                    ~{pr.estimated_1rm}kg 1RM
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Pro Tip Card */}
       <Card className="mb-6 bg-primary/10 border-primary/20">
@@ -334,11 +364,34 @@ export default function TodayDashboard() {
         </div>
       </Card>
 
-      {/* Nutrition Suggestion */}
-      <Card className="mb-4">
-        <CardHeader icon="🍲" title="Lunch Suggestion" />
-        <p className="text-foreground font-medium">{routine.nutrition.lunch_dal}</p>
-      </Card>
+      {/* Today's Diet Plan */}
+      {(() => {
+        const todayDiet = getTodaysDiet(gymDayKey)
+        return (
+          <Link href="/diet" className="block mb-4">
+            <Card className="hover:border-primary/30 transition-colors">
+              <CardHeader icon="🍽️" title={todayDiet.label} subtitle={todayDiet.workout_focus} />
+              <div className="flex items-center gap-4 mt-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-primary">{todayDiet.total_protein_g}g</span>
+                  <span className="text-[10px] text-muted">Protein</span>
+                </div>
+                <div className="w-px h-3 bg-border" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-foreground">{todayDiet.total_calories}</span>
+                  <span className="text-[10px] text-muted">Cal</span>
+                </div>
+                <div className="w-px h-3 bg-border" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-success">₹{todayDiet.total_cost}</span>
+                  <span className="text-[10px] text-muted">Cost</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted mt-2">Tap to see full meal plan →</p>
+            </Card>
+          </Link>
+        )
+      })()}
     </PageContainer>
   )
 }

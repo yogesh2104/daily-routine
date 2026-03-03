@@ -7,6 +7,7 @@ import { PageContainer } from '@/components/layout'
 import { Card, CardHeader, Button, NumberInput } from '@/components/ui'
 import { getTodaysGymDay, gymProgram } from '@/config/workout-program'
 import { supabase } from '@/lib/supabase/client'
+import { checkForNewPRs, type PRCheckResult } from '@/lib/personal-records'
 import type { WorkoutSession, ExerciseSet } from '@/types/database'
 
 interface SetData {
@@ -27,6 +28,9 @@ export default function WorkoutPage() {
     const [sets, setSets] = useState<SetData[]>([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [sessionNotes, setSessionNotes] = useState('')
+    const [newPRs, setNewPRs] = useState<PRCheckResult[]>([])
+    const [showPRToast, setShowPRToast] = useState(false)
 
     const today = new Date()
     const todayStr = today.toISOString().split('T')[0]
@@ -73,7 +77,6 @@ export default function WorkoutPage() {
                         reps_done: s.reps_done ?? undefined,
                         weight_used: s.weight_used ?? undefined,
                         duration_sec: s.duration_sec ?? undefined,
-                        rpe: s.rpe ?? undefined,
                         completed: s.completed
                     })))
                     setLoading(false)
@@ -163,14 +166,16 @@ export default function WorkoutPage() {
         ))
     }
 
-    // Update rpe
-    const updateRpe = (exerciseName: string, setNumber: number, rpe: number | undefined) => {
+    // Update RPE
+    const updateRPE = (exerciseName: string, setNumber: number, rpe: number | undefined) => {
         setSets(prev => prev.map(s =>
             s.exercise_name === exerciseName && s.set_number === setNumber
-                ? { ...s, rpe: rpe }
+                ? { ...s, rpe }
                 : s
         ))
     }
+
+
 
     // Save workout
     const saveWorkout = async () => {
@@ -178,6 +183,14 @@ export default function WorkoutPage() {
         setSaving(true)
 
         try {
+            // Check for PRs before saving
+            const prResults = await checkForNewPRs(user.id, sets)
+            if (prResults.length > 0) {
+                setNewPRs(prResults)
+                setShowPRToast(true)
+                setTimeout(() => setShowPRToast(false), 5000)
+            }
+
             // Create or get session
             let sessionId = session?.id
 
@@ -188,7 +201,8 @@ export default function WorkoutPage() {
                         user_id: user.id,
                         date: todayStr,
                         gym_day_key: gymDayKey,
-                        completed: sets.every(s => s.completed)
+                        completed: sets.every(s => s.completed),
+                        notes: sessionNotes || null
                     }, { onConflict: 'user_id,date' })
                     .select()
                     .single()
@@ -197,10 +211,13 @@ export default function WorkoutPage() {
                 sessionId = newSession.id
                 setSession(newSession)
             } else {
-                // Update completion status
+                // Update completion status and notes
                 await supabase
                     .from('workout_sessions')
-                    .update({ completed: sets.every(s => s.completed) })
+                    .update({
+                        completed: sets.every(s => s.completed),
+                        notes: sessionNotes || null
+                    })
                     .eq('id', sessionId)
             }
 
@@ -302,7 +319,7 @@ export default function WorkoutPage() {
                         <h3 className="font-semibold text-foreground mb-3">{exerciseName}</h3>
 
                         {/* Sets header */}
-                        <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 text-xs text-muted mb-2 px-1">
+                        <div className="grid grid-cols-[auto_1fr_1fr_1fr_48px] gap-2 text-xs text-muted mb-2 px-1">
                             <span></span>
                             <span className="text-center">Target</span>
                             <span className="text-center">Reps</span>
@@ -315,7 +332,7 @@ export default function WorkoutPage() {
                             {exerciseSets.map((set) => (
                                 <div
                                     key={`${set.exercise_name}-${set.set_number}`}
-                                    className={`grid grid-cols-[auto_1fr_1fr_1fr_1fr] gap-2 items-center p-2 rounded-lg transition-colors ${set.completed ? 'bg-success/10' : 'bg-surface-elevated'
+                                    className={`grid grid-cols-[auto_1fr_1fr_1fr_48px] gap-2 items-center p-2 rounded-lg transition-colors ${set.completed ? 'bg-success/10' : 'bg-surface-elevated'
                                         }`}
                                 >
                                     {/* Checkbox */}
@@ -361,9 +378,8 @@ export default function WorkoutPage() {
                                     <div className="flex justify-center">
                                         <NumberInput
                                             value={set.rpe}
-                                            onChange={(v) => updateRpe(set.exercise_name, set.set_number, v)}
+                                            onChange={(v) => updateRPE(set.exercise_name, set.set_number, v)}
                                             placeholder="-"
-                                            step={1}
                                         />
                                     </div>
                                 </div>
@@ -372,6 +388,18 @@ export default function WorkoutPage() {
                     </Card>
                 ))}
             </div>
+
+            {/* Session Notes */}
+            <Card className="mt-4 mb-4">
+                <CardHeader icon="📝" title="Session Notes" />
+                <textarea
+                    className="w-full mt-2 bg-surface-elevated border border-border rounded-lg p-3 text-sm text-foreground placeholder-muted resize-none focus:outline-none focus:border-primary/50 transition-colors"
+                    rows={2}
+                    placeholder="How did you feel? Any observations..."
+                    value={sessionNotes}
+                    onChange={(e) => setSessionNotes(e.target.value)}
+                />
+            </Card>
 
             {/* Save button */}
             <div className="fixed bottom-20 left-0 right-0 px-4 safe-bottom">
@@ -386,6 +414,34 @@ export default function WorkoutPage() {
                     </Button>
                 </div>
             </div>
+
+            {/* PR Toast */}
+            {showPRToast && newPRs.length > 0 && (
+                <div className="fixed top-4 left-4 right-4 z-50 animate-bounce">
+                    <div className="max-w-lg mx-auto bg-gradient-to-r from-yellow-500/90 to-orange-500/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-yellow-400/30">
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">🏆</span>
+                            <div className="flex-1">
+                                <h4 className="text-white font-bold text-sm">NEW PERSONAL RECORD!</h4>
+                                {newPRs.map(pr => (
+                                    <p key={pr.exercise_name} className="text-white/90 text-xs mt-0.5">
+                                        {pr.exercise_name}: {pr.currentBest}kg 1RM
+                                        {pr.previousBest > 0 && (
+                                            <span className="text-yellow-200"> (+{pr.improvement}%)</span>
+                                        )}
+                                    </p>
+                                ))}
+                            </div>
+                            <button
+                                onClick={() => setShowPRToast(false)}
+                                className="text-white/70 hover:text-white text-lg"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Finisher */}
             {gymDay.finisher && (
