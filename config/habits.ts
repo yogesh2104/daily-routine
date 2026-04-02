@@ -7,24 +7,15 @@ export interface HabitDefinition {
 }
 
 export const habitDefinitions: HabitDefinition[] = [
-    // Morning habits
     { key: 'morning_routine', label: 'Morning Routine', icon: '🌅', category: 'morning' },
-
-    // Nutrition habits
-    { key: 'protein', label: 'Protein Target (150g+)', icon: '🍗', category: 'nutrition' },
-    { key: 'water', label: 'Hydration (3L)', icon: '💧', category: 'nutrition' },
-
-    // Fitness habits
-    { key: 'steps', label: 'Steps (8k-10k)', icon: '🚶', category: 'fitness' },
-
-    // Skincare habits
+    { key: 'protein', label: 'Protein Goal (90g+)', icon: '🥣', category: 'nutrition' },
+    { key: 'water', label: 'Hydration (3.5L)', icon: '💧', category: 'nutrition' },
+    { key: 'steps', label: 'Steps (8k+)', icon: '🚶', category: 'fitness' },
     { key: 'skincare_am', label: 'Skincare (AM)', icon: '☀️', category: 'skincare' },
     { key: 'skincare_pm', label: 'Skincare (PM)', icon: '🌙', category: 'skincare' },
-
-    // Recovery habits
-    { key: 'sleep', label: 'Quality Sleep (6.5h+)', icon: '😴', category: 'recovery' },
+    { key: 'sleep', label: 'Quality Sleep (7h+)', icon: '😴', category: 'recovery' },
 ]
 
 export function getHabitsByCategory(category: HabitDefinition['category']) {
-    return habitDefinitions.filter(h => h.category === category)
+    return habitDefinitions.filter((habit) => habit.category === category)
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -13,7 +12,6 @@ export default function SignUpPage() {
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
     const { signUp } = useAuth()
-    const router = useRouter()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()

@@ -2,48 +2,6 @@
 const DB_NAME = 'fitness-tracker'
 const DB_VERSION = 2
 
-interface OfflineData {
-    habits: Array<{
-        id: string
-        user_id: string
-        date: string
-        habit_key: string
-        completed: boolean
-        value?: string
-        synced: boolean
-    }>
-    workout_sessions: Array<{
-        id: string
-        user_id: string
-        date: string
-        gym_day_key: string
-        completed: boolean
-        synced: boolean
-    }>
-    exercise_sets: Array<{
-        id: string
-        session_id: string
-        exercise_name: string
-        set_number: number
-        reps_target?: string
-        reps_done?: number
-        weight_used?: number
-        rpe?: number
-        completed: boolean
-        synced: boolean
-    }>
-    body_stats: Array<{
-        id: string
-        user_id: string
-        date: string
-        weight?: number
-        body_fat?: number
-        waist?: number
-        notes?: string
-        synced: boolean
-    }>
-}
-
 let db: IDBDatabase | null = null
 
 export async function initDB(): Promise<IDBDatabase> {

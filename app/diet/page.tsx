@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { PageContainer } from '@/components/layout'
 import { Card, CardHeader } from '@/components/ui'
-import { getTodaysDiet, dietPlan, budgetInfo } from '@/config/diet-plan'
+import { getTodaysDiet, budgetInfo } from '@/config/diet-plan'
 import { dayOfWeekToGymDay, gymProgram } from '@/config/workout-program'
 import type { Meal } from '@/config/diet-plan'
 
@@ -146,8 +146,6 @@ export default function DietPage() {
     const gymDayKey = dayOfWeekToGymDay[selectedDay]
     const diet = getTodaysDiet(gymDayKey)
     const gymDay = gymProgram.days[gymDayKey]
-    const isToday = selectedDay === todayDow
-
     const mealEntries = Object.entries(diet.meals) as [string, Meal][]
 
     return (

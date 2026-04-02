@@ -56,7 +56,28 @@ export interface GymProgram {
     days: Record<string, GymDay>
 }
 
+export interface WorkoutTemplateOption {
+    key: string
+    shortLabel: string
+    label: string
+    description: string
+}
+
+export interface WorkoutSetTemplate {
+    exercise_name: string
+    exercise_order: number
+    set_number: number
+    reps_target: string
+    duration_sec?: number
+}
+
 // Daily routine types
+export interface RoutineSlot {
+    time: string
+    label: string
+    details: string
+}
+
 export interface WeekDay {
     workout: {
         morning: string
@@ -67,6 +88,8 @@ export interface WeekDay {
     }
     skincare_pm: string
     gym_day?: string
+    timeline: RoutineSlot[]
+    suggestions: string[]
 }
 
 export interface DailyConstants {
@@ -74,6 +97,8 @@ export interface DailyConstants {
     morning: string[]
     am_skincare: string[]
     pm_skincare_base: string[]
+    travel_snacks: string[]
+    protein_sources: string[]
 }
 
 export interface SleepConfig {

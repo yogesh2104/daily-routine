@@ -5,6 +5,7 @@ export interface WorkoutSession {
     user_id: string
     date: string // ISO date string YYYY-MM-DD
     gym_day_key: GymDayKey
+    session_label?: string
     completed: boolean
     notes?: string
     created_at: string
@@ -15,6 +16,7 @@ export interface ExerciseSet {
     id: string
     session_id: string
     exercise_name: string
+    exercise_order?: number
     set_number: number
     reps_target?: string
     reps_done?: number
@@ -57,6 +59,7 @@ export type GymDayKey =
     | 'day_5_shoulders_calisthenics'
     | 'day_6_light_cardio'
     | 'day_7_rest'
+    | 'custom'
 
 export type HabitKey =
     | 'water'
@@ -64,9 +67,11 @@ export type HabitKey =
     | 'skincare_am'
     | 'skincare_pm'
     | 'steps'
+    | 'sleep'
     | 'sleep_bed'
     | 'sleep_wake'
     | 'protein'
+    | 'protein_grams'
 
 // Database insert types (without auto-generated fields)
 export type WorkoutSessionInsert = Omit<WorkoutSession, 'id' | 'created_at' | 'updated_at'>

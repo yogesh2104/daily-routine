@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-
 interface CheckboxProps {
     checked: boolean
     onChange: (checked: boolean) => void

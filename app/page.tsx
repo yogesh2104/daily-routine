@@ -7,12 +7,13 @@ import { useAuth } from '@/contexts/auth-context'
 import { PageContainer } from '@/components/layout'
 import { Card, CardHeader, Button, Checkbox, Input } from '@/components/ui'
 import { getTodaysRoutine, getDayName } from '@/config/daily-routine'
-import { getTodaysGymDay, gymProgram, dayOfWeekToGymDay } from '@/config/workout-program'
+import { getTodaysGymDay } from '@/config/workout-program'
 import { getTodaysDiet } from '@/config/diet-plan'
 import { habitDefinitions } from '@/config/habits'
 import { supabase } from '@/lib/supabase/client'
 import { getStreakData, CHALLENGE_DAYS, type StreakData } from '@/lib/streak'
 import { getRecentPRs, type PersonalRecord } from '@/lib/personal-records'
+import { buildProteinGapHint } from '@/lib/weekly-summary'
 import type { HabitKey } from '@/types/database'
 
 const PRO_TIPS = [
@@ -46,6 +47,7 @@ export default function TodayDashboard() {
   const todayStr = today.toISOString().split('T')[0]
   const { routine, constants } = getTodaysRoutine()
   const { key: gymDayKey, day: gymDay } = getTodaysGymDay()
+  const todayDiet = getTodaysDiet(gymDayKey)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -141,6 +143,13 @@ export default function TodayDashboard() {
 
   const completedHabits = Object.values(habits).filter(Boolean).length
   const totalHabits = habitDefinitions.length
+  const loggedProtein = Number.parseFloat(habitValues['protein_grams'] || '')
+  const proteinTarget = Math.max(todayDiet.total_protein_g, 90)
+  const proteinGapHint = buildProteinGapHint(Number.isFinite(loggedProtein) ? loggedProtein : null, proteinTarget)
+  const proteinStatusClassName = proteinGapHint.remainingGrams === 0
+    ? 'bg-success/5 border-success/20'
+    : 'bg-warning/5 border-warning/20'
+  const proteinValueClassName = proteinGapHint.remainingGrams === 0 ? 'text-success' : 'text-warning'
 
   return (
     <PageContainer>
@@ -154,7 +163,7 @@ export default function TodayDashboard() {
             <h1 className="text-2xl font-bold text-foreground mt-1">
               {formatDate(today)}
             </h1>
-            <p className="text-muted text-sm mt-1">Welcome back!</p>
+            <p className="text-muted text-sm mt-1">Built around your office commute and evening gym.</p>
           </div>
           <Button
             variant="ghost"
@@ -273,6 +282,21 @@ export default function TodayDashboard() {
         </Card>
       </Link>
 
+      <Card className="mb-4">
+        <CardHeader title="Today&apos;s Timeline" subtitle="A realistic flow for your 7:20 AM departure and 8 PM return." />
+        <div className="space-y-3 mt-3">
+          {routine.timeline.map((slot) => (
+            <div key={`${slot.time}-${slot.label}`} className="grid grid-cols-[68px_1fr] gap-3">
+              <div className="text-xs font-semibold text-primary pt-0.5">{slot.time}</div>
+              <div>
+                <div className="text-sm font-medium text-foreground">{slot.label}</div>
+                <div className="text-xs text-muted mt-0.5">{slot.details}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
       {/* Morning Routine */}
       <Card className="mb-4">
         <CardHeader icon="🌅" title="Morning" subtitle={routine.workout.morning} />
@@ -284,6 +308,38 @@ export default function TodayDashboard() {
             </div>
           ))}
         </div>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader title="Today&apos;s Suggestions" />
+        <div className="space-y-2 mt-2">
+          {routine.suggestions.map((tip, i) => (
+            <div key={i} className="text-sm text-foreground/80 flex items-start gap-2">
+              <span className="text-primary mt-0.5">+</span>
+              {tip}
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className={`mb-4 ${proteinStatusClassName}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-bold text-foreground">Protein Gap</h4>
+            <p className="text-xs text-muted mt-1">
+              {proteinGapHint.trackedGrams}g tracked of {proteinGapHint.targetGrams}g today
+            </p>
+          </div>
+          <div className="text-right">
+            <div className={`text-xl font-bold ${proteinValueClassName}`}>
+              {proteinGapHint.remainingGrams === 0 ? 'On target' : `${proteinGapHint.remainingGrams}g left`}
+            </div>
+            <div className="text-[10px] text-muted uppercase tracking-wide mt-1">{proteinGapHint.title}</div>
+          </div>
+        </div>
+        <p className="text-sm text-foreground/85 mt-3 leading-relaxed">
+          {proteinGapHint.message}
+        </p>
       </Card>
 
       {/* Daily Habits */}
